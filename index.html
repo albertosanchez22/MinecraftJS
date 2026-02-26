@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MinecraftJS</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #000;
+      overflow: hidden;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+    }
+
+    #canvas-container {
+      width: 100vw;
+      height: 100vh;
+    }
+    #canvas-container canvas {
+      display: block;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* ── Hotbar ── */
+    #hotbar {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 4px;
+      pointer-events: none;
+    }
+    .hb-cell {
+      width: 48px; height: 48px;
+      background: rgba(0,0,0,0.55);
+      border: 2px solid rgba(255,255,255,0.25);
+      border-radius: 4px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .hb-cell.hb-active {
+      border-color: #fff;
+      background: rgba(255,255,255,0.12);
+    }
+    .hb-preview {
+      width: 32px; height: 32px;
+      border-radius: 3px;
+      image-rendering: pixelated;
+    }
+    .hb-count {
+      position: absolute;
+      bottom: 2px; right: 4px;
+      font-size: 10px;
+      color: #fff;
+      text-shadow: 1px 1px 1px #000;
+      font-weight: bold;
+    }
+
+    /* ── Barra de rotura ── */
+    #break-bar {
+      width: 180px; height: 8px;
+      background: rgba(0,0,0,0.45);
+      border-radius: 4px;
+      overflow: hidden;
+      align-self: center;
+      pointer-events: none;
+    }
+    #break-progress {
+      display: none;
+      height: 100%;
+      background: #e07020;
+      border-radius: 4px;
+      transition: width 0.05s linear;
+    }
+
+    /* ── Crosshair ── */
+    #crosshair {
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 20px; height: 20px;
+      pointer-events: none;
+    }
+    #crosshair::before,
+    #crosshair::after {
+      content: '';
+      position: absolute;
+      background: rgba(255,255,255,0.85);
+    }
+    #crosshair::before { width: 2px; height: 100%; left: 50%; top: 0; transform: translateX(-50%); }
+    #crosshair::after  { width: 100%; height: 2px; top: 50%; left: 0; transform: translateY(-50%); }
+
+    /* ── HUD debug ── */
+    #hud {
+      position: fixed;
+      top: 8px; left: 8px;
+      color: #fff;
+      font-size: 12px;
+      text-shadow: 1px 1px 2px #000;
+      pointer-events: none;
+      white-space: pre;
+    }
+
+    /* ── Hint de click ── */
+    #hint {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0,0,0,.55);
+      color: #fff;
+      gap: 12px;
+      pointer-events: none;
+    }
+    #hint h1 {
+      font-size: 2.5rem;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      text-shadow: 3px 3px 0 #000;
+    }
+    #hint p {
+      font-size: 1rem;
+      opacity: .8;
+    }
+    #hint .controls-grid {
+      display: grid;
+      grid-template-columns: auto auto;
+      gap: 4px 16px;
+      font-size: .85rem;
+      margin-top: 8px;
+      opacity: .75;
+    }
+    #hint .controls-grid span:nth-child(odd)  { font-weight: bold; text-align: right; }
+    #hint .controls-grid span:nth-child(even) { text-align: left; }
+
+    /* ── Inventario ── */
+    #inv-screen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.72);
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      cursor: default;
+    }
+    .inv-panel {
+      background: #2a2a2a;
+      border: 2px solid #555;
+      border-radius: 6px;
+      padding: 18px 20px 14px;
+      color: #ddd;
+      font-size: 12px;
+      user-select: none;
+    }
+    .inv-title {
+      font-size: 15px;
+      font-weight: bold;
+      color: #fff;
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    .inv-label {
+      font-size: 11px;
+      color: #aaa;
+      margin-bottom: 4px;
+    }
+    .inv-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .inv-craft-area { display: flex; flex-direction: column; }
+    .inv-craft-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 40px);
+      grid-template-rows: repeat(2, 40px);
+      gap: 3px;
+    }
+    .inv-arrow { font-size: 20px; color: #888; }
+    .inv-cell-out { width: 44px !important; height: 44px !important; border-color: #c8a060 !important; }
+    .inv-main-grid {
+      display: grid;
+      grid-template-columns: repeat(9, 40px);
+      grid-template-rows: repeat(3, 40px);
+      gap: 3px;
+    }
+    .inv-hotbar-row {
+      display: grid;
+      grid-template-columns: repeat(9, 40px);
+      gap: 3px;
+      margin-top: 3px;
+      padding-top: 8px;
+      border-top: 1px solid #444;
+    }
+    .inv-cell {
+      width: 40px; height: 40px;
+      background: #1a1a1a;
+      border: 1px solid #4a4a4a;
+      border-radius: 3px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: border-color 0.1s;
+    }
+    .inv-cell:hover { border-color: #aaa; }
+    .inv-cell-active { border-color: #fff !important; }
+    .inv-preview {
+      width: 28px; height: 28px;
+      border-radius: 2px;
+    }
+    .inv-count {
+      position: absolute;
+      bottom: 1px; right: 3px;
+      font-size: 10px;
+      color: #fff;
+      text-shadow: 1px 1px 1px #000;
+      font-weight: bold;
+      pointer-events: none;
+    }
+    /* Cursor flotante (item en mano dentro del inventario) */
+    #inv-cursor {
+      display: none;
+      position: fixed;
+      width: 40px; height: 40px;
+      border-radius: 3px;
+      border: 2px solid #fff;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+      z-index: 200;
+    }
+    .inv-cur-count {
+      position: absolute;
+      bottom: 1px; right: 3px;
+      font-size: 10px;
+      color: #fff;
+      text-shadow: 1px 1px 1px #000;
+      font-weight: bold;
+    }
+
+    /* ── Barra de vida ── */
+    #health-bar {
+      display: flex;
+      gap: 1px;
+      pointer-events: none;
+    }
+    .heart {
+      font-size: 17px;
+      line-height: 1;
+      text-shadow: 1px 1px 2px #000;
+    }
+    .heart.full  { color: #e22; }
+    .heart.half  { color: #933; filter: brightness(1.3); }
+    .heart.empty { color: #222; text-shadow: none; }
+
+    /* ── Contenedor HUD encima de la hotbar ── */
+    /* Hotbar: 9×48px + 8×4px gap = 464px, bottom:20px, altura 48px → top edge en 68px */
+    #hud-bar {
+      position: fixed;
+      bottom: 74px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 464px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+    #chat-box {
+      display: none;
+      position: fixed;
+      bottom: 20px;
+      left: 16px;
+      flex-direction: column;
+      gap: 4px;
+      z-index: 150;
+      pointer-events: all;
+    }
+    #chat-input {
+      width: 360px;
+      padding: 7px 12px;
+      background: rgba(0,0,0,0.75);
+      border: 1px solid rgba(255,255,255,0.35);
+      border-radius: 4px;
+      color: #fff;
+      font-size: 13px;
+      font-family: monospace;
+      outline: none;
+      caret-color: #fff;
+    }
+    #chat-input::placeholder { color: #777; }
+
+    /* ── Indicador de modo vuelo ── */
+    #fly-indicator {
+      display: none;
+      position: fixed;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,80,200,0.65);
+      color: #cde;
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 4px;
+      pointer-events: none;
+      letter-spacing: 1px;
+    }
+  </style>
+
+  <!-- Three.js via CDN importmap -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.168.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+
+  <!-- Contenedor del canvas WebGL -->
+  <div id="canvas-container"></div>
+
+  <!-- Mira central -->
+  <div id="crosshair"></div>
+
+  <!-- HUD debug -->
+  <div id="hud"></div>
+
+  <!-- Hotbar -->
+  <div id="hotbar"></div>
+
+  <!-- Barra de vida + rotura: contenedor centrado sobre la hotbar -->
+  <div id="hud-bar">
+    <div id="health-bar"></div>
+    <div id="break-bar"><div id="break-progress"></div></div>
+  </div>
+
+  <!-- Indicador vuelo -->
+  <div id="fly-indicator">✈ MODO VUELO — Espacio: subir • Shift: bajar</div>
+
+  <!-- Chat / comandos -->
+  <div id="chat-box">
+    <input id="chat-input" type="text" placeholder="Escribe un comando...  /fly" maxlength="100" autocomplete="off" spellcheck="false" />
+  </div>
+
+  <!-- Inventario (gestionado por InventoryScreen.js) -->
+  <div id="inv-screen"></div>
+  <div id="inv-cursor"><span class="inv-cur-count"></span></div>
+
+  <!-- Pantalla de inicio / instrucciones -->
+  <div id="hint">
+    <h1>⛏ MinecraftJS</h1>
+    <p>Haz clic para bloquear el ratón y empezar a jugar</p>
+    <div class="controls-grid">
+      <span>W A S D</span><span>Mover</span>
+      <span>Espacio</span><span>Saltar</span>
+      <span>Ratón</span><span>Mirar</span>
+      <span>Clic izq.</span><span>Romper bloque</span>
+      <span>Clic der.</span><span>Colocar bloque</span>
+      <span>Clic der. (mesa)</span><span>Crafteo 3×3</span>
+      <span>Shift / 2xW</span><span>Correr</span>
+      <span>Rueda / 1-9</span><span>Cambiar slot</span>
+      <span>T</span><span>Abrir chat / comandos</span>
+      <span>/fly</span><span>Activar modo vuelo</span>
+      <span>E</span><span>Inventario / Crafteo</span>
+      <span>ESC</span><span>Liberar ratón / cerrar</span>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
