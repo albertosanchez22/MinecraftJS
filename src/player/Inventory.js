@@ -97,7 +97,8 @@ export class Inventory {
   /** Mueve un slot de craftOutput al inventario */
   takeCraftResult() {
     if (!this.craftOutput) return;
-    this.addBlock(this.craftOutput.id);
+    const { id, count } = this.craftOutput;
+    for (let n = 0; n < count; n++) this.addBlock(id);
     for (let i = 0; i < 4; i++) {
       if (this.craft[i]) {
         this.craft[i].count--;
@@ -110,7 +111,8 @@ export class Inventory {
   /** Variante para el grid 3×3 (mesa de crafteo) */
   takeCraftResult9() {
     if (!this.craftOutput9) return false;
-    this.addBlock(this.craftOutput9.id);
+    const { id, count } = this.craftOutput9;
+    for (let n = 0; n < count; n++) this.addBlock(id);
     for (let i = 0; i < 9; i++) {
       if (this.craft9[i]) {
         this.craft9[i].count--;

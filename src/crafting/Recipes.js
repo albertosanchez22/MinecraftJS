@@ -8,13 +8,13 @@ import { BlockID } from '../world/BlockTypes.js';
  * Recetas shaped (exact:true): todos los slots deben coincidir en orden.
  */
 const RECIPES_2x2 = [
-  // 1 Madera → 4 Tablones
+  // 1 Madera → 4 Tablones (slot único, igual que Minecraft)
   {
     shapeless: true,
     ingredients: { [BlockID.WOOD]: 1 },
     output: { id: BlockID.PLANKS, count: 4 },
   },
-  // 4 Tablones exactos → Mesa de crafteo
+  // 4 Tablones exactos (2×2) → Mesa de crafteo
   {
     exact: true,
     pattern: [BlockID.PLANKS, BlockID.PLANKS, BlockID.PLANKS, BlockID.PLANKS],
@@ -23,7 +23,7 @@ const RECIPES_2x2 = [
 ];
 
 const RECIPES_3x3 = [
-  // 1 Madera → 4 Tablones (también funciona en 3×3)
+  // 1 Madera → 4 Tablones (igual que Minecraft vanilla)
   {
     shapeless: true,
     ingredients: { [BlockID.WOOD]: 1 },
@@ -33,12 +33,6 @@ const RECIPES_3x3 = [
   {
     shapeless: true,
     ingredients: { [BlockID.PLANKS]: 4 },
-    output: { id: BlockID.CRAFTING_TABLE, count: 1 },
-  },
-  // 9 Madera → 1 Mesa de crafteo (bonus)
-  {
-    shapeless: true,
-    ingredients: { [BlockID.WOOD]: 2 },
     output: { id: BlockID.CRAFTING_TABLE, count: 1 },
   },
 ];

@@ -86,20 +86,6 @@ export function clamp(val, min, max) {
   return Math.max(min, Math.min(max, val));
 }
 
-export function worldToChunk(wx, wz, chunkSize) {
-  return {
-    cx: Math.floor(wx / chunkSize),
-    cz: Math.floor(wz / chunkSize),
-  };
-}
-
-export function worldToBlock(wx, wy, wz, chunkSize) {
-  const cx = Math.floor(wx / chunkSize);
-  const cz = Math.floor(wz / chunkSize);
-  return {
-    cx, cz,
-    lx: ((wx % chunkSize) + chunkSize) % chunkSize,
-    ly: wy,
-    lz: ((wz % chunkSize) + chunkSize) % chunkSize,
-  };
-}
+// Re-exportamos las utilidades de coordenadas desde CoordUtils
+// para mantener compatibilidad con importaciones existentes.
+export { worldToChunk, worldToBlock } from './CoordUtils.js';

@@ -2,10 +2,7 @@
 //  ItemDropManager — gestiona todos los drops del mundo
 // ============================================================
 import { ItemDrop } from './ItemDrop.js';
-
-const PICKUP_DIST  = 1.5;
-const MAGNET_DIST  = 3.5;
-const MAGNET_SPEED = 7;
+import { ITEM_PICKUP_DIST, ITEM_MAGNET_DIST, ITEM_MAGNET_SPEED } from '../utils/Constants.js';
 
 export class ItemDropManager {
   constructor(scene, inventory) {
@@ -58,15 +55,15 @@ export class ItemDropManager {
       const d  = Math.sqrt(d2);
 
       // Magnetismo: se acerca al jugador cuando está cerca
-      if (d < MAGNET_DIST && d > 0.05) {
-        const spd = MAGNET_SPEED * (1 - d / MAGNET_DIST);
+      if (d < ITEM_MAGNET_DIST && d > 0.05) {
+        const spd = ITEM_MAGNET_SPEED * (1 - d / ITEM_MAGNET_DIST);
         drop.velocity.x += (dx / d) * spd * dt * 60;
         drop.velocity.y += (dy / d) * spd * dt * 20;
         drop.velocity.z += (dz / d) * spd * dt * 60;
       }
 
       // Recogida
-      if (d < PICKUP_DIST) {
+      if (d < ITEM_PICKUP_DIST) {
         this._inv.addBlock(drop.blockId);
         drop.dispose();
         this._drops.splice(i, 1);

@@ -5,6 +5,7 @@
 import * as THREE from 'three';
 import { getBlockTexKeys } from '../world/BlockTypes.js';
 import { getTextureMaterial } from '../rendering/TextureGenerator.js';
+import { ITEM_DESPAWN_TIME } from '../utils/Constants.js';
 
 const SIZE        = 0.25;   // tamaño del cubo
 const BOB_AMP     = 0.07;   // amplitud del bobbing
@@ -12,10 +13,6 @@ const BOB_FREQ    = 2.2;    // Hz del bobbing
 const ROT_SPEED   = 1.8;    // rad/s de rotación
 const GRAVITY     = -18;
 const BOUNCE_DAMP = 0.38;   // energía conservada en rebote
-const PICKUP_DIST = 1.5;    // distancia de recogida al jugador
-const MAGNET_DIST = 3.5;    // distancia a la que se atrae
-const MAGNET_SPD  = 7;      // velocidad de atracción
-const DESPAWN_T   = 300;    // segundos hasta desaparecer
 
 export class ItemDrop {
   /**
@@ -82,7 +79,7 @@ export class ItemDrop {
    */
   update(dt, world) {
     this._age += dt;
-    if (this._age > DESPAWN_T) return true;
+    if (this._age > ITEM_DESPAWN_TIME) return true;
 
     // ── Gravedad ──────────────────────────────────────────
     if (!this._onGround) {
@@ -130,7 +127,7 @@ export class ItemDrop {
     const bobOffset = this._onGround ? Math.sin(this._bobTime) * BOB_AMP : 0;
 
     // ── Parpadeo al expirar ───────────────────────────────
-    const lastSeconds = DESPAWN_T - this._age;
+    const lastSeconds = ITEM_DESPAWN_TIME - this._age;
     if (lastSeconds < 10) {
       this.mesh.visible = Math.floor(this._age * 6) % 2 === 0;
     }

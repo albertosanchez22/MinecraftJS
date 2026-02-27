@@ -1,7 +1,9 @@
 // ============================================================
-//  BreakAnimation — overlay de grietas en primera persona
+//  BreakAnimation — overlay de grietas + partículas al romper
 //  Genera 8 texturas canvas con grietas progresivas y las
 //  proyecta sobre el bloque que se está rompiendo.
+//  También dispara partículas de fragmentos cuando el bloque
+//  se destruye completamente.
 // ============================================================
 import * as THREE from 'three';
 
@@ -70,6 +72,7 @@ export class BreakAnimation {
     this._scene = scene;
     this._mesh  = null;
     this._stage = -1;
+    this._particles = [];
 
     const geo = new THREE.BoxGeometry(1.004, 1.004, 1.004);
     const mat = new THREE.MeshBasicMaterial({
@@ -107,5 +110,88 @@ export class BreakAnimation {
 
     this._mesh.position.set(blockPos.x + 0.5, blockPos.y + 0.5, blockPos.z + 0.5);
     this._mesh.visible = true;
+  }
+
+  // ── Partículas de rotura ─────────────────────────────────
+
+  /**
+   * Lanza un estallido de fragmentos en la posición del bloque roto.
+   * @param {{x:number,y:number,z:number}} blockPos
+   * @param {number} color  color hex del bloque (p.ej. 0x7d6a4f para tierra)
+   */
+  spawnParticles(blockPos, color = 0x888888) {
+    const COUNT    = 14;
+    const center   = new THREE.Vector3(blockPos.x + 0.5, blockPos.y + 0.5, blockPos.z + 0.5);
+    const mat      = new THREE.MeshLambertMaterial({ color });
+    const baseGeo  = new THREE.BoxGeometry(0.12, 0.12, 0.12);
+
+    for (let i = 0; i < COUNT; i++) {
+      const mesh = new THREE.Mesh(baseGeo, mat);
+      mesh.position.copy(center);
+
+      // Posición inicial aleatoria dentro del bloque
+      mesh.position.x += (Math.random() - 0.5) * 0.7;
+      mesh.position.y += (Math.random() - 0.5) * 0.7;
+      mesh.position.z += (Math.random() - 0.5) * 0.7;
+
+      // Velocidad aleatoria hacia afuera
+      const vel = new THREE.Vector3(
+        (Math.random() - 0.5) * 5,
+        Math.random() * 4 + 1.5,
+        (Math.random() - 0.5) * 5
+      );
+
+      // Rotación angular aleatoria
+      const angVel = new THREE.Vector3(
+        (Math.random() - 0.5) * 8,
+        (Math.random() - 0.5) * 8,
+        (Math.random() - 0.5) * 8
+      );
+
+      const scale = 0.5 + Math.random() * 0.8;
+      mesh.scale.setScalar(scale);
+
+      this._scene.add(mesh);
+      this._particles.push({ mesh, vel, angVel, life: 0.55 + Math.random() * 0.25 });
+    }
+  }
+
+  /**
+   * Avanza la simulación de partículas. Llamar cada frame con dt.
+   * @param {number} dt
+   */
+  tickParticles(dt) {
+    const GRAVITY = -14;
+    for (let i = this._particles.length - 1; i >= 0; i--) {
+      const p = this._particles[i];
+      p.life -= dt;
+      if (p.life <= 0) {
+        this._scene.remove(p.mesh);
+        p.mesh.geometry.dispose();
+        this._particles.splice(i, 1);
+        continue;
+      }
+
+      // Gravedad
+      p.vel.y += GRAVITY * dt;
+
+      // Mover
+      p.mesh.position.x += p.vel.x * dt;
+      p.mesh.position.y += p.vel.y * dt;
+      p.mesh.position.z += p.vel.z * dt;
+
+      // Rotar
+      p.mesh.rotation.x += p.angVel.x * dt;
+      p.mesh.rotation.y += p.angVel.y * dt;
+      p.mesh.rotation.z += p.angVel.z * dt;
+
+      // Desvanecer según vida restante
+      const alpha = Math.min(p.life / 0.25, 1);
+      p.mesh.scale.setScalar(p.mesh.scale.x * (0.98));
+      if (p.mesh.material.opacity !== undefined) {
+        p.mesh.material.transparent = true;
+        p.mesh.material.opacity = alpha;
+      }
+    }
   }
 }

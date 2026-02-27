@@ -15,8 +15,9 @@ import { InventoryScreen } from './ui/InventoryScreen.js';
 import { HandRenderer }    from './rendering/HandRenderer.js';
 import { BreakAnimation }  from './rendering/BreakAnimation.js';
 import { raycastWorld }    from './world/Raycast.js';
-import { BlockDef, BlockID } from './world/BlockTypes.js';
-import { CHUNK_SIZE }      from './utils/Constants.js';
+import { BlockDef, BlockID, BlockRegistry } from './world/BlockTypes.js';
+import { CHUNK_SIZE, PLAYER_REACH, FALL_DAMAGE_VEL } from './utils/Constants.js';
+import { EventBus, GameEvents } from './utils/EventBus.js';
 import { preloadTextures } from './rendering/TextureGenerator.js';
 import { CraftingTableScreen } from './ui/CraftingTableScreen.js';
 import { AnimalManager }   from './entities/AnimalManager.js';
@@ -24,11 +25,9 @@ import { ItemDropManager } from './entities/ItemDropManager.js';
 import { HealthBar }       from './ui/HealthBar.js';
 import { Chat }            from './ui/Chat.js';
 import { SoundManager }    from './audio/SoundManager.js';
-import { FALL_DAMAGE_VEL } from './utils/Constants.js';
 
 const MAX_DT           = 0.05;
 const CHUNKS_PER_FRAME = 2;
-const REACH            = 5;
 
 export class Game {
   constructor() {
@@ -146,7 +145,8 @@ export class Game {
     this.player.updateCamera();
 
     // 5. Mano en 1ª persona
-    this.handRenderer.update(paused ? null : this.inventory.selectedBlock());
+    const isMining = !paused && this.controls.mouseButtons.left;
+    this.handRenderer.update(paused ? null : this.inventory.selectedBlock(), isMining, dt);
 
     // 6. Raycast
     const hit = !paused ? this._doRaycast() : null;
@@ -161,7 +161,7 @@ export class Game {
 
     // 6d. Animar grietas 3D
     if (this._breakTarget && this._breakTime > 0 && this._breakBlockId !== null) {
-      const bt = BlockDef[this._breakBlockId]?.breakTime ?? 1;
+      const bt = BlockRegistry.get(this._breakBlockId)?.breakTime ?? 1;
       this.breakAnim.update(
         bt === Infinity ? 0 : Math.min(this._breakTime / bt, 0.99),
         this._breakTarget
@@ -177,6 +177,9 @@ export class Game {
     );
     this._meshQueue.push(...dirty);
     this._flushMeshQueue(CHUNKS_PER_FRAME);
+
+    // 7b. Partículas de rotura
+    this.breakAnim.tickParticles(dt);
 
     // 8. Render
     this.renderer.render();
@@ -200,7 +203,7 @@ export class Game {
       this.world,
       { x: eye.x, y: eye.y, z: eye.z },
       { x: dir.x, y: dir.y, z: dir.z },
-      REACH
+      PLAYER_REACH
     );
   }
 
@@ -227,7 +230,7 @@ export class Game {
       this._breakTime    = 0;
     }
 
-    const def       = BlockDef[hit.blockId];
+    const def       = BlockRegistry.get(hit.blockId);
     const breakTime = def?.breakTime ?? 1;
     if (breakTime === Infinity) return;
 
@@ -242,6 +245,11 @@ export class Game {
       this._rebuildChunkAt(x, z);
       this.sounds.playBreak();
 
+      // Partículas de fragmentos al romper
+      const blockColor = def?.colorSide ?? def?.color ?? 0x888888;
+      this.breakAnim.spawnParticles(hit.pos, blockColor);
+
+      EventBus.emit(GameEvents.BLOCK_BROKEN, { pos: hit.pos, blockId: this._breakBlockId });
       if (droppedId !== null) this.itemDropManager.spawn(droppedId, hit.pos);
 
       this._breakTarget  = null;
@@ -330,7 +338,7 @@ export class Game {
     const hud = document.getElementById('hud');
     if (!hud) return;
     const p = this.player.position;
-    const blockName = hit ? (BlockDef[hit.blockId]?.name ?? '?') : '-';
+    const blockName = hit ? (BlockRegistry.get(hit.blockId)?.name ?? '?') : '-';
     const flyTag = this.player.flyMode ? '  | ✈ VUELO' : '';
     hud.textContent =
       `XYZ: ${p.x.toFixed(1)} / ${p.y.toFixed(1)} / ${p.z.toFixed(1)}` +
